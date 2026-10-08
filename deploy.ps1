@@ -1,5 +1,5 @@
 $ErrorActionPreference = "Stop"
-Set-Location E:\searchapp
+Set-Location E:\Search_app
 
 $service = "Searchapp"
 $before  = (git rev-parse HEAD).Trim()
@@ -21,7 +21,7 @@ git pull --ff-only
 # Install packages only if requirements.txt changed
 if (git diff --name-only $before $after | Select-String "requirements.txt") {
     Write-Host "requirements.txt changed, installing packages..."
-    & E:\searchapp\venv\Scripts\pip.exe install -r requirements.txt
+    & E:\Search_app\venv\Scripts\pip.exe install -r requirements.txt
 }
 
 nssm start $service
@@ -35,7 +35,7 @@ if ($status -ne "SERVICE_RUNNING") {
     nssm start $service
     Start-Sleep -Seconds 5
     Write-Host "After rollback: $((nssm status $service).Trim())"
-    Get-Content E:\searchapp\logs\err.log -Tail 20
+    Get-Content E:\Search_app\logs\err.log -Tail 20
     exit 1
 }
 
