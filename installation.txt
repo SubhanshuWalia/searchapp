@@ -32,4 +32,6 @@ Setup of app in new system:
 3.Cloudflare tunneling done same tunnel for both app and this app
     id is searchapp.ssdenterprises.org.in
 
-Note: The secrets and username password in this env file is old and the one in the windows deployed app has been changed using the above given scripts in pt. 2.
+4. Pull changes - open powershell as admin
+    cd E:\searchapp
+    .\deploy.ps1
