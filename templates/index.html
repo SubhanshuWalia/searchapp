@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Unified Records Search</title>
+    <style>
+      :root { --bg:#f5f6f8; --card:#fff; --ink:#1c2330; --muted:#6b7280; --accent:#2563eb; }
+      * { box-sizing:border-box; }
+      body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--ink); }
+      header { background:var(--accent); color:#fff; padding:18px 20px; }
+      header h1 { margin:0 0 4px; font-size:22px; }
+      header .sub { opacity:.85; font-size:13px; }
+      .wrap { max-width:1800px; width:96%; margin:0 auto; padding:16px 20px 60px; }
+  .search-row { display:flex; gap:8px; margin:14px 0 6px; }
+  #q { flex:1; padding:14px 16px; font-size:17px; border:2px solid #d1d5db; border-radius:12px; outline:none; }
+  #q:focus { border-color:var(--accent); }
+  .search-row.fields { margin:0 0 6px; flex-wrap:wrap; }
+  .search-row.fields input { flex:1 1 200px; padding:10px 12px; font-size:14px; border:2px solid #d1d5db; border-radius:10px; outline:none; }
+  .search-row.fields input:focus { border-color:var(--accent); }
+  .search-row.fields input.used { border-color:var(--accent); background:#eff6ff; }
+      button.primary { padding:14px 28px; font-size:16px; border:none; border-radius:12px; background:var(--accent); color:#fff; cursor:pointer; font-weight:600; }
+      button.primary:hover { background:#1d4ed8; }
+      .meta { color:var(--muted); font-size:13px; margin:10px 2px; }
+      .group { width:100%; background:var(--card); border:1px solid #e5e7eb; border-radius:12px; margin:14px 0; overflow:hidden; }
+      .group h2 { margin:0; padding:10px 14px; font-size:15px; background:#f9fafb; border-bottom:1px solid #e5e7eb; display:flex; justify-content:space-between; align-items:center; }
+      .group h2 .n { background:var(--accent); color:#fff; border-radius:999px; padding:2px 10px; font-size:12px; font-weight:600; }
+      .group .note { padding:6px 14px; font-size:12px; color:#b45309; background:#fffbeb; border-bottom:1px solid #fde68a; }
+      .tblwrap { overflow-x:auto; }
+      table {
+        border-collapse:collapse;
+        width:max-content;
+        min-width:0;
+        table-layout:fixed;
+        font-size:13.5px;
+      }
+      th, td {
+        text-align:left;
+        padding:9px 14px;
+        border-bottom:1px solid #f0f1f3;
+        vertical-align:top;
+        white-space:normal;
+        overflow-wrap:anywhere;
+        word-break:break-word;
+      }
+
+      /* Fixed widths prevent columns from expanding differently on wide screens. */
+      th.col-name, td.col-name {
+        width:180px;
+        min-width:180px;
+        max-width:180px;
+      }
+      th.col-father, td.col-father {
+        width:180px;
+        min-width:180px;
+        max-width:180px;
+      }
+      th.col-mobile, td.col-mobile,
+      th.col-alt-mobile, td.col-alt-mobile {
+        width:125px;
+        min-width:125px;
+        max-width:125px;
+        white-space:nowrap;
+        overflow-wrap:normal;
+        word-break:normal;
+      }
+      th.col-wrap, td.col-wrap {
+        width:260px;
+        min-width:260px;
+        max-width:260px;
+      }
+      th.col-compact-wrap, td.col-compact-wrap{
+        width:120px;
+        min-width:120px;
+        max-width:120px;
+      }
+      th.col-short, td.col-short {
+        width:120px;
+        min-width:120px;
+        max-width:120px;
+      }
+      tr:hover td { background:#f8faff; }
+      th { color:var(--muted); font-weight:600; font-size:12px; text-transform:uppercase; letter-spacing:.03em; position:sticky; top:0; background:#f9fafb; }
+      mark { background:#fde68a; padding:0 1px; border-radius:2px; color:inherit; }
+      tr.selectable-row { cursor:pointer; }
+      tr.selectable-row.selected td { background:#dbeafe !important; }
+      .copy-selected { margin:10px 14px; padding:7px 12px; border:1px solid #d1d5db; border-radius:8px; background:#fff; color:var(--ink); cursor:pointer; font-weight:600; }
+      .copy-selected:hover { background:#f3f4f6; }
+      .more { display:block; width:100%; padding:10px; text-align:center; background:#f9fafb; border:none; border-top:1px solid #e5e7eb; color:var(--accent); font-weight:600; cursor:pointer; font-size:14px; }
+      .more:hover { background:#eef2ff; }
+      .empty { padding:14px; color:var(--muted); font-size:14px; }
+      .err { color:#b91c1c; padding:12px 14px; font-size:13px; }
+      footer { text-align:center; color:var(--muted); font-size:12px; padding:20px; }
+    </style>
+  </head>
+
+  <body>
+    <header>
+      <h1>Unified Records Search</h1>
+    </header>
+
+    <div class="wrap">
+  <div class="search-row">
+    <input id="q" placeholder="Type to search — name, phone, ration card, aadhaar, address…" autofocus>
+    <button class="primary" id="go">Search</button>
+  </div>
+  <div class="search-row fields">
+    <input id="f_addr" placeholder="Address" title="Search address columns only">
+    <input id="f_phone" placeholder="Phone number" title="Search phone columns only">
+    <input id="f_id" placeholder="ID card (UID / Aadhaar / rice card)" title="Search ID columns only">
+    <input id="f_city" placeholder="City" title="Search city / district columns only">
+    <input id="f_pin" placeholder="Pin code" title="Search pincode / address columns only">
+    <input id="f_father" placeholder="Father Name" title="Search father name columns only">
+  </div>
+
+    <div class="meta" id="meta"></div>
+      <div id="results"></div>
+    </div>
+
+    <footer>Unified Data Search...</footer>
+
+    <script>
+const qEl = document.getElementById('q'), goEl = document.getElementById('go'),
+      resultsEl = document.getElementById('results'), metaEl = document.getElementById('meta'),
+      fAddr = document.getElementById('f_addr'), fPhone = document.getElementById('f_phone'),
+      fId = document.getElementById('f_id'), fCity = document.getElementById('f_city'),
+      fPin = document.getElementById('f_pin'), fFather = document.getElementById('f_father');
+const fieldEls = { addr: fAddr, phone: fPhone, idcard: fId, city: fCity, pincode: fPin, father: fFather };
+// display columns each filter box looks at (client-side, over fetched rows)
+const FIELD_COLS = {
+  addr: ['Address', 'Ward', 'Village', 'Mandal', 'District', 'Secretariat', 'School', 'Text'],
+  phone: ['Mobile', 'Alt No'],
+  idcard: ['UID', 'Aadhaar', 'Rice Card', 'Account', 'IFSC', 'HH ID', 'Policy', 'Mobile', 'Alt No'],
+  city: ['District', 'Village', 'Mandal', 'Secretariat', 'Address', 'Ward', 'Text'],
+  pincode: ['Pincode', 'Pin Code', 'PINCODE', 'PIN_CODE', 'PIN', 'Zipcode', 'ZIP Code', 'ladd', 'ward_details', 'Address', 'Street', 'Village'],
+  father: ['Father Name', 'Father', 'FNAME', 'FATHER_CARE_OF', 'FATHER_NAME', 'fname', 'Care Of'],
+};
+const WRAP_COLS = new Set(['Address', 'Ward', 'School', 'Text']);
+let lastQ = '';          // main query of the currently displayed results
+let lastTookMs = 0;
+let fetched = {};        // key -> {label, rows, more, page, note, error}
+let fetchOrder = [];
+let abortController = null;
+let reqSeq = 0;
+
+function fieldVals() {
+  const o = {};
+  for (const [k, el] of Object.entries(fieldEls)) {
+    const v = el.value.trim();
+    if (v) o[k] = v;
+  }
+  return o;
+}
+
+// First-filled box becomes the primary fetcher; the rest refine its results.
+let fillOrder = [];
+function trackFill(key, val) {
+  const i = fillOrder.indexOf(key);
+  if (val && i === -1) fillOrder.push(key);
+  if (!val && i !== -1) fillOrder.splice(i, 1);
+}
+function primaryOf() {
+  for (const k of fillOrder) {
+    const v = k === 'q' ? qEl.value.trim() : (fieldEls[k] ? fieldEls[k].value.trim() : '');
+    if (v) return k;
+  }
+  if (qEl.value.trim()) return 'q';
+  for (const [k, el] of Object.entries(fieldEls)) if (el.value.trim()) return k;
+  return null;
+}
+function fetchSig() {
+  const p = primaryOf();
+  if (!p) return '';
+  const v = p === 'q' ? qEl.value.trim() : fieldEls[p].value.trim();
+  return p + '=' + v;
+}
+let lastFetchSig = '';
+let lastPrimary = 'q';
+function rowContains(r, text) {
+  const needles = text.split(/\s+/).filter(t => t.length);
+  if (!needles.length) return true;
+  const hay = Object.values(r).map(v => v === null || v === undefined ? '' : String(v)).join(' ').toLowerCase();
+  return needles.every(n => hay.includes(n.toLowerCase()));
+}
+
+function hlText() {
+  return [qEl.value.trim(), ...Object.values(fieldVals())].filter(Boolean).join(' ');
+}
+
+function rowPasses(row, fields) {
+  for (const [fk, val] of Object.entries(fields)) {
+    const needle = val.toLowerCase();
+    const cols = FIELD_COLS[fk] || [];
+    let ok = false;
+    for (const c of cols) {
+      const v = row[c];
+      if (v === null || v === undefined) continue;
+      if (String(v).toLowerCase().includes(needle)) { ok = true; break; }
+    }
+    if (!ok) return false;
+  }
+  return true;
+}
+
+goEl.onclick = doSearch;
+let debounce;
+for (const [key, el] of [['q', qEl], ...Object.entries(fieldEls)]) {
+  el.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+  el.addEventListener('input', () => {
+    trackFill(key, el.value.trim());
+    clearTimeout(debounce);
+    debounce = setTimeout(() => {
+      // Refetch only if what the server must fetch changed; else instant filter.
+      if (fetchSig() !== lastFetchSig) doSearch();
+      else renderAll();
+    }, 300);
+  });
+}
+
+      function highlight(text, q) {
+        if (text === null || text === undefined) return '';
+        const s = String(text);
+        const tokens = (q || '').split(/\s+/).filter(t => t.length >= 1);
+        if (!tokens.length) return esc(s);
+        const re = new RegExp('(' + tokens.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'gi');
+        // split() with a capture group interleaves non-match/match parts;
+        // escape every part so data can never break the page markup.
+        return s.split(re).map((part, i) => i % 2 ? '<mark>' + esc(part) + '</mark>' : esc(part)).join('');
+      }
+
+      function esc(s) {
+        if (s === null || s === undefined) return '';
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      }
+
+function doSearch() {
+  // Send the complete query state to the server. Filtering is performed
+  // server-side before pagination so a match cannot be hidden merely because
+  // it fell outside the first fetched page.
+  const query = qEl.value.trim();
+  const primary = primaryOf();
+  if (!primary || (primary === 'q' && query.length < 2)) {
+    fetched = {}; fetchOrder = []; lastQ = ''; lastTookMs = 0; lastFetchSig = '';
+    resultsEl.innerHTML = '';
+    metaEl.textContent = '';
+    return;
+  }
+
+  // Cancel previous request; guard against out-of-order responses
+  if (abortController) abortController.abort();
+  abortController = new AbortController();
+  const mySeq = ++reqSeq;
+
+  lastPrimary = primary;
+  lastFetchSig = fetchSig();
+  metaEl.textContent = 'Searching…';
+  const params = new URLSearchParams({scope:'all'});
+  if (query) params.set('q', query);
+  for (const [k, v] of Object.entries(fieldVals())) params.set(k, v);
+  const url = `/api/search?${params.toString()}`;
+  fetch(url, { signal: abortController.signal })
+    .then(r => r.json())
+    .then(d => {
+      if (mySeq !== reqSeq) return; // a newer search started; ignore stale reply
+      if (d.error) { metaEl.textContent = d.error; return; }
+      lastQ = hlText();
+      lastTookMs = d.took_ms;
+      fetched = {}; fetchOrder = [];
+      d.groups.forEach(g => {
+        fetchOrder.push(g.key);
+        fetched[g.key] = { label: g.label, rows: g.rows || [], more: !!g.more,
+                           page: g.page || 1, note: g.note || '', error: g.error || '' };
+      });
+      renderAll();
+      const sentSig = lastFetchSig;
+      if (d.groups.some(g => g.scanning) && mySeq === reqSeq) {
+        setTimeout(() => {
+          if (fetchSig() === sentSig && mySeq === reqSeq) doSearch();
+        }, 16000);
+      }
+    })
+    .catch(e => { if (e.name !== 'AbortError') metaEl.textContent = 'error: ' + e; });
+}
+
+const PNAMES = {
+  q: 'general', addr: 'Address', phone: 'Phone', idcard: 'ID card',
+  city: 'City', pincode: 'Pin code', father: 'Father Name'
+};
+function viewColumnName(c) {
+  const m = {
+    cname: 'Name',
+    fname: 'Father Name',
+    ladd: 'Address',
+    'alt mob': 'Alt Mobile',
+    altno: 'Alt Mobile',
+    teacher_name: 'Name',
+    policy_holder_name: 'Customer Name',
+    CITIZEN_NAME: 'Name',
+    FATHER_CARE_OF: 'Father Name',
+    NOMINEE_NAME: 'Nominee Name'
+  };
+  return m[c] || c;
+}
+
+function columnRank(c) {
+  const n = String(c || '').toLowerCase().replace(/[_-]+/g, ' ');
+  if (n === 'name' || n === 'cname' || n === 'customer name' || n === 'policy holder name' ||
+      n === 'teacher name' || n === 'citizen name') return 10;
+  if (n === 'father name' || n === 'fname' || n.includes('father') || n.includes('care of') ||
+      n === 'father care of') return 20;
+  if (n === 'mobile' || n === 'phone' || n === 'mobile number' || n === 'phone number') return 30;
+  if (n === 'alt mobile' || n === 'alt mob' || n === 'altno' || n.includes('alternate mobile')) return 40;
+  if (n === 'address' || n === 'ladd' || n === 'street' || n === 'village' ||
+      n === 'ward' || n === 'district' || n === 'mandal' || n === 'secretariat' ||
+      n === 'village name' || n === 'street address') return 50;
+  if (n.includes('account') || n.includes('bank') || n.includes('ifsc') ||
+      n.includes('branch') || n.includes('upi')) return 60;
+  if (n.includes('nominee')) return 70;
+  if (n.includes('policy')) return 80;
+  return 100;
+}
+
+function orderedColumns(row, key) {
+  const hidden = new Set([
+    'source_file', 'source row id', 'source_row_id', 'source rowid', 'page'
+  ]);
+
+  let cols = Object.keys(row || {}).filter(
+    c => !c.startsWith('__') && !hidden.has(String(c).trim().toLowerCase())
+  );
+
+  // PDF records are intentionally displayed as one unnamed data column.
+  if (key === 'pdf') return cols.slice(0, 1);
+
+  return cols
+    .map((c, i) => ({c, i}))
+    .sort((a, b) => columnRank(a.c) - columnRank(b.c) || a.i - b.i)
+    .map(x => x.c);
+}
+
+function displayCell(row, c) {
+  return row[c] === null || row[c] === undefined ? '' : String(row[c]);
+}
+
+function columnSizeClass(c) {
+  const n = String(viewColumnName(c) || '')
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .trim();
+
+  if (
+    n === 'name' ||
+    n === 'customer name' ||
+    n === 'policy holder name' ||
+    n === 'citizen name' ||
+    n === 'teacher name'
+  ) return 'col-name';
+
+  if (
+    n === 'father name' ||
+    n === 'father' ||
+    n === 'fathername' ||
+    n === 'fname'
+  ) return 'col-father';
+
+  if (
+    n === 'mobile' ||
+    n === 'phone' ||
+    n === 'mobile number' ||
+    n === 'phone number'
+  ) return 'col-mobile';
+
+  if (
+    n === 'alt mobile' ||
+    n === 'alt mob' ||
+    n === 'altno' ||
+    n.includes('alternate mobile')
+  ) return 'col-alt-mobile';
+
+  if (/^address$|^ladd$|address/i.test(n)) return 'col-wrap';
+
+  if (
+    /street|village|ward|claim/i.test(n)
+  ) return 'col-compact-wrap';
+
+  if (
+    WRAP_COLS.has(c) ||
+    /school|text/i.test(n)
+  ) return 'col-wrap';
+
+  return 'col-short';
+}
+
+function renderAll() {
+  const fields = fieldVals();
+  const fnames = Object.keys(fields);
+  for (const [k, el] of Object.entries(fieldEls)) el.classList.toggle('used', !!fields[k]);
+  if (!fetchOrder.length) return;
+
+  metaEl.textContent = `${lastTookMs} ms · server-side AND search across ${fetchOrder.length} sources`;
+  resultsEl.innerHTML = '';
+  const ht = hlText();
+  let total = 0;
+
+  fetchOrder.forEach(key => {
+    const g = fetched[key] || {label:key, rows:[], more:false, page:1, note:'', error:''};
+    const rows = Array.isArray(g.rows) ? g.rows : [];
+    const div = document.createElement('div');
+    div.className = 'group';
+
+    if (g.error) {
+      div.innerHTML = `<h2><span>${esc(g.label)}</span></h2><div class="err">${esc(g.error)}</div>`;
+      resultsEl.appendChild(div);
+      return;
+    }
+
+    total += rows.length;
+    const badge = `<span class="n">${rows.length}${g.more ? '+' : ''}</span>`;
+    const firstRow = rows.length ? rows[0] : {};
+    let h = `<h2><span>${esc(g.label)}</span>${badge}</h2>`;
+
+    if (g.note) h += `<div class="note">${esc(g.note)}</div>`;
+
+    if (!rows.length) {
+      div.innerHTML = h + `<div class="empty">no matches</div>`;
+      resultsEl.appendChild(div);
+      return;
+    }
+
+    const rawCols = orderedColumns(firstRow, key);
+
+    // PDF: one unnamed column, data only.
+    if (key === 'pdf') {
+      let t = '<div class="tblwrap"><table><thead><tr><th></th></tr></thead><tbody>';
+      rows.forEach((r, rowIndex) => {
+        const c = rawCols[0];
+        t += `<tr class="selectable-row" data-row="${rowIndex}"><td class="wrap">${highlight(displayCell(r, c), ht)}</td></tr>`;
+      });
+      t += '</tbody></table></div>';
+      if (g.more) t += `<button class="more" data-key="${key}">Load more</button>`;
+      const copyButton = `<button class="copy-selected">Copy Selected</button>`;
+      div.innerHTML = h + copyButton + t;
+      resultsEl.appendChild(div);
+
+      div.querySelectorAll('.selectable-row').forEach(row => {
+        row.addEventListener('click', e => {
+          if (e.ctrlKey) {
+            row.classList.toggle('selected');
+          } else {
+            div.querySelectorAll('.selectable-row.selected')
+              .forEach(r => r.classList.remove('selected'));
+            row.classList.add('selected');
+          }
+        });
+      });
+
+      div.querySelector('.copy-selected').addEventListener('click', async () => {
+        const rows = [...div.querySelectorAll('.selectable-row.selected')];
+        if (!rows.length) return;
+
+        const text = rows.map(row =>
+          [...row.querySelectorAll('td')]
+            .map(td => td.innerText)
+            .join('\t')
+        ).join('\n');
+
+        try {
+          await navigator.clipboard.writeText(text);
+        } catch (err) {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          ta.remove();
+        }
+      });
+
+      if (g.more) div.querySelector('.more').onclick = () => loadMore(key, g.page + 1);
+      return;
+    }
+
+    let t = '<div class="tblwrap"><table><colgroup>' +
+      rawCols.map(c => `<col class="${columnSizeClass(c)}">`).join('') +
+      '</colgroup><thead><tr>' +
+      rawCols.map(c => `<th class="${columnSizeClass(c)}">${esc(viewColumnName(c))}</th>`).join('') +
+      '</tr></thead><tbody>';
+
+    rows.forEach((r, rowIndex) => {
+      t += `<tr class="selectable-row" data-row="${rowIndex}">` + rawCols.map(c => {
+        const v = displayCell(r, c);
+        const cls = columnSizeClass(c);
+        return `<td class="${cls}">${highlight(v, ht)}</td>`;
+      }).join('') + '</tr>';
+    });
+
+    t += '</tbody></table></div>';
+    if (g.more) t += `<button class="more" data-key="${key}">Load more</button>`;
+
+    const copyButton = `<button class="copy-selected">Copy Selected</button>`;
+    div.innerHTML = h + copyButton + t;
+    resultsEl.appendChild(div);
+
+    div.querySelectorAll('.selectable-row').forEach(row => {
+      row.addEventListener('click', e => {
+        if (e.ctrlKey) {
+          row.classList.toggle('selected');
+        } else {
+          div.querySelectorAll('.selectable-row.selected')
+            .forEach(r => r.classList.remove('selected'));
+          row.classList.add('selected');
+        }
+      });
+    });
+
+    div.querySelector('.copy-selected').addEventListener('click', async () => {
+      const rows = [...div.querySelectorAll('.selectable-row.selected')];
+      if (!rows.length) return;
+
+      const text = rows.map(row =>
+        [...row.querySelectorAll('td')]
+          .map(td => td.innerText)
+          .join('\t')
+      ).join('\n');
+
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (err) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
+    });
+
+    if (g.more) div.querySelector('.more').onclick = () => loadMore(key, g.page + 1);
+  });
+
+  if (!total) metaEl.textContent += fnames.length ? ' — 0 rows pass the filters' : ' — 0 results';
+}
+
+function loadMore(key, page) {
+  // Next page of the PRIMARY query only; merged into the pool and re-rendered
+  // through the box filters so filtering/highlight stay consistent.
+  if (abortController) abortController.abort();
+  abortController = new AbortController();
+  const params = new URLSearchParams({scope:key, page:String(page)});
+  const query = qEl.value.trim();
+  if (query) params.set('q', query);
+  for (const [k, v] of Object.entries(fieldVals())) params.set(k, v);
+  if (!query && !Object.keys(fieldVals()).length) return;
+  const url = `/api/search?${params.toString()}`;
+  fetch(url, { signal: abortController.signal })
+    .then(r => r.json())
+    .then(d => {
+      const g = d.groups.find(x => x.key === key);
+      if (!g || !fetched[key]) return;
+      const identity = r => `${r.__source || key}|${r.__table || ''}|${r.__rowid ?? ''}`;
+      const seen = new Set(fetched[key].rows.map(identity));
+      (g.rows || []).forEach(r => {
+        const id = identity(r);
+        if (!seen.has(id)) { seen.add(id); fetched[key].rows.push(r); }
+      });
+      fetched[key].page = page;
+      fetched[key].more = !!g.more;
+      if (g.note && !fetched[key].note) fetched[key].note = g.note;
+      renderAll();
+    })
+    .catch(e => { if (e.name !== 'AbortError') console.error(e); });
+}
+    </script>
+  </body>
+</html>

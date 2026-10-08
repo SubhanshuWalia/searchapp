@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Search Database Admin</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f5f7fa;
+    color: #1f2937;
+}
+
+header {
+    background: #111827;
+    color: white;
+    padding: 18px 28px;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 22px;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 25px auto;
+    padding: 0 20px;
+}
+
+.card {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+h2 {
+    margin-top: 0;
+    font-size: 19px;
+}
+
+h3 {
+    margin-top: 20px;
+}
+
+input,
+select,
+button {
+    font: inherit;
+}
+
+input[type="file"],
+input[type="text"],
+select {
+    padding: 9px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+}
+
+button {
+    padding: 9px 14px;
+    border: 0;
+    border-radius: 6px;
+    cursor: pointer;
+    background: #2563eb;
+    color: white;
+}
+
+button:hover {
+    opacity: 0.9;
+}
+
+button.secondary {
+    background: #6b7280;
+}
+
+button.danger {
+    background: #dc2626;
+}
+
+button.success {
+    background: #059669;
+}
+
+.row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.status {
+    margin-top: 12px;
+    padding: 10px;
+    border-radius: 6px;
+    background: #f3f4f6;
+}
+
+.status.error {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+.status.success {
+    background: #dcfce7;
+    color: #166534;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th,
+td {
+    text-align: left;
+    padding: 10px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+th {
+    background: #f9fafb;
+}
+
+.badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: #e5e7eb;
+    font-size: 12px;
+}
+
+.badge.ready {
+    background: #fef3c7;
+}
+
+.badge.existing {
+    background: #dbeafe;
+}
+
+.badge.confirmed {
+    background: #dcfce7;
+}
+
+.columns {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 8px;
+}
+
+.column {
+    padding: 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #fafafa;
+}
+
+.mapping {
+    display: grid;
+    grid-template-columns: 180px 1fr 120px;
+    gap: 10px;
+    align-items: center;
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.mapping select {
+    width: 100%;
+}
+
+.hidden {
+    display: none;
+}
+
+.small {
+    color: #6b7280;
+    font-size: 13px;
+}
+
+.actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+#detail {
+    display: none;
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;">
+        <h1>Search Database Admin</h1>
+        <a href="/admin/logout" style="color:white;text-decoration:none;background:#374151;padding:9px 14px;border-radius:6px;">Logout</a>
+    </div>
+</header>
+
+<div class="container">
+
+    <!-- Upload -->
+    <div class="card">
+        <h2>Upload Database</h2>
+
+        <div class="row">
+            <input id="dbFile" type="file" accept=".sqlite">
+            <input id="dbLabel" type="text" placeholder="Label (optional)">
+            <button onclick="uploadDatabase()">Upload & Inspect</button>
+        </div>
+
+        <div id="uploadStatus" class="status hidden"></div>
+    </div>
+
+
+    <!-- Sources -->
+    <div class="card">
+        <h2>Sources</h2>
+
+        <button class="secondary" onclick="loadSources()">
+            Refresh
+        </button>
+
+        <div id="sourcesStatus" class="status hidden"></div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Source</th>
+                    <th>Label</th>
+                    <th>Status</th>
+                    <th>Tables</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+
+            <tbody id="sourcesBody"></tbody>
+        </table>
+    </div>
+
+
+    <!-- Detail -->
+    <div id="detail" class="card">
+
+        <h2 id="detailTitle">Source</h2>
+
+        <div id="detailInfo" class="small"></div>
+
+        <h3>Table</h3>
+
+        <div class="row">
+            <select id="tableSelect" onchange="loadTable()"></select>
+        </div>
+
+        <h3>Columns</h3>
+
+        <div id="columns" class="columns"></div>
+
+        <h3>Semantic Mapping</h3>
+
+        <div class="small">
+            Select which database columns correspond to the searchable
+            logical fields.
+        </div>
+
+        <div id="mappingContainer"></div>
+
+        <br>
+
+        <button class="success" onclick="confirmMappings()">
+            Confirm Mappings
+        </button>
+
+        <div id="mappingStatus" class="status hidden"></div>
+
+    </div>
+
+</div>
+
+
+<script>
+
+let currentSource = null;
+let currentTable = null;
+let currentSuggestions = [];
+
+
+function showStatus(id, message, type="") {
+
+    const el = document.getElementById(id);
+
+    el.textContent = message;
+    el.className = "status " + type;
+    el.classList.remove("hidden");
+}
+
+
+async function loadSources() {
+
+    const res = await fetch("/api/admin/sources");
+    const data = await res.json();
+
+    if (!res.ok) {
+        showStatus(
+            "sourcesStatus",
+            data.error || "Failed to load sources",
+            "error"
+        );
+        return;
+    }
+
+    const body = document.getElementById("sourcesBody");
+    body.innerHTML = "";
+
+    const grouped = {};
+
+    for (const source of data.sources) {
+
+        if (!grouped[source.source_key]) {
+            grouped[source.source_key] = {
+                source_key: source.source_key,
+                label: source.label,
+                status: source.status,
+                tables: []
+            };
+        }
+
+        if (source.table_name) {
+            grouped[source.source_key].tables.push(
+                source.table_name
+            );
+        }
+    }
+
+    for (const source of Object.values(grouped)) {
+
+        const tr = document.createElement("tr");
+
+        const protectedSource =
+            [
+                "ghmc",
+                "aarogyasri",
+                "mdb",
+                "teachers",
+                "pdf",
+                "zdata"
+            ].includes(source.source_key);
+
+        const deleteButton = protectedSource
+            ? ""
+            : `
+                <button
+                    class="danger"
+                    onclick="deleteSource('${escapeHtml(source.source_key)}')">
+                    Delete
+                </button>
+            `;
+
+        const tables =
+            source.tables.length
+                ? source.tables.join(", ")
+                : "-";
+
+        tr.innerHTML = `
+            <td>${escapeHtml(source.source_key)}</td>
+
+            <td>${escapeHtml(source.label || "")}</td>
+
+            <td>
+                <span class="badge ${escapeHtml(source.status || "")}">
+                    ${escapeHtml(source.status || "")}
+                </span>
+            </td>
+
+            <td>${escapeHtml(tables)}</td>
+
+            <td class="actions">
+
+                <button
+                    onclick="viewSource('${escapeHtml(source.source_key)}')">
+                    View
+                </button>
+
+                ${deleteButton}
+
+            </td>
+        `;
+
+        body.appendChild(tr);
+    }
+}
+
+
+async function uploadDatabase() {
+
+    const fileInput = document.getElementById("dbFile");
+    const labelInput = document.getElementById("dbLabel");
+
+    if (!fileInput.files.length) {
+        showStatus(
+            "uploadStatus",
+            "Select a .sqlite file first.",
+            "error"
+        );
+        return;
+    }
+
+    const file = fileInput.files[0];
+
+    if (!file.name.toLowerCase().endsWith(".sqlite")) {
+        showStatus(
+            "uploadStatus",
+            "Only .sqlite files are supported.",
+            "error"
+        );
+        return;
+    }
+
+    try {
+
+        showStatus(
+            "uploadStatus",
+            "Uploading and inspecting..."
+        );
+
+        const form = new FormData();
+
+        form.append("file", file);
+
+        const uploadRes = await fetch(
+            "/api/admin/upload",
+            {
+                method: "POST",
+                body: form
+            }
+        );
+
+        const uploadData = await uploadRes.json();
+
+        if (!uploadRes.ok) {
+            throw new Error(
+                uploadData.error || "Upload failed"
+            );
+        }
+
+
+        showStatus(
+            "uploadStatus",
+            "Upload complete. Registering source..."
+        );
+
+
+        const registerRes = await fetch(
+            "/api/admin/uploads/register",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    filename: uploadData.filename,
+                    label: labelInput.value.trim()
+                })
+            }
+        );
+
+        const registerData = await registerRes.json();
+
+        if (!registerRes.ok) {
+            throw new Error(
+                registerData.error || "Registration failed"
+            );
+        }
+
+
+        showStatus(
+            "uploadStatus",
+            "Database registered successfully.",
+            "success"
+        );
+
+        fileInput.value = "";
+        labelInput.value = "";
+
+        await loadSources();
+
+        if (registerData.source) {
+            await viewSource(
+                registerData.source.source_key
+            );
+        }
+
+    } catch (err) {
+
+        showStatus(
+            "uploadStatus",
+            err.message,
+            "error"
+        );
+    }
+}
+
+
+async function viewSource(sourceKey) {
+
+    try {
+
+        const res = await fetch(
+            `/api/admin/sources/${encodeURIComponent(sourceKey)}`
+        );
+
+        const data = await res.json();
+
+        console.log("SOURCE API:", data);
+
+        if (!res.ok) {
+            throw new Error(
+                data.error || "Failed to load source"
+            );
+        }
+
+        if (!data.source) {
+            throw new Error(
+                "API response does not contain 'source'"
+            );
+        }
+
+        currentSource = data.source;
+
+        console.log(
+            "TABLES:",
+            currentSource.tables
+        );
+
+        document.getElementById("detail").style.display =
+            "block";
+
+        document.getElementById("detailTitle").textContent =
+            currentSource.label ||
+            currentSource.source_key;
+
+        document.getElementById("detailInfo").textContent =
+            `${currentSource.source_key} • ` +
+            `${currentSource.status} • ` +
+            `${currentSource.database}`;
+
+
+        const select =
+            document.getElementById("tableSelect");
+
+        select.innerHTML = "";
+
+
+        const tables =
+            currentSource.tables || [];
+
+
+        if (!tables.length) {
+
+            select.innerHTML =
+                `<option value="">
+                    No tables registered
+                 </option>`;
+
+            document.getElementById("columns").innerHTML =
+                "";
+
+            document.getElementById("mappingContainer").innerHTML =
+                "";
+
+            showStatus(
+                "mappingStatus",
+                "This source has no registered tables.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        for (const table of tables) {
+
+            const option =
+                document.createElement("option");
+
+            option.value = table.name;
+
+            option.textContent =
+                `${table.name} (${table.row_count ?? 0} rows)`;
+
+            select.appendChild(option);
+        }
+
+
+        currentTable = tables[0].name;
+
+        select.value = currentTable;
+
+        await loadTable();
+
+    } catch (err) {
+
+        console.error(
+            "VIEW SOURCE ERROR:",
+            err
+        );
+
+        alert(err.message);
+    }
+}
+
+
+async function loadTable() {
+
+    if (!currentSource) {
+        console.error("No current source");
+        return;
+    }
+
+    currentTable =
+        document.getElementById("tableSelect").value;
+
+    if (!currentTable) {
+        console.error("No table selected");
+        return;
+    }
+
+    console.log(
+        "Loading table:",
+        currentSource.source_key,
+        currentTable
+    );
+
+
+    const table =
+        (currentSource.tables || [])
+        .find(
+            t => t.name === currentTable
+        );
+
+
+    if (!table) {
+
+        console.error(
+            "Table not found:",
+            currentTable,
+            currentSource.tables
+        );
+
+        return;
+    }
+
+
+    const columnsEl =
+        document.getElementById("columns");
+
+    columnsEl.innerHTML = "";
+
+
+    for (const column of table.columns || []) {
+
+        const div =
+            document.createElement("div");
+
+        div.className = "column";
+
+        div.innerHTML = `
+            <strong>
+                ${escapeHtml(column.name)}
+            </strong>
+
+            <div class="small">
+                ${escapeHtml(column.type || "")}
+            </div>
+        `;
+
+        columnsEl.appendChild(div);
+    }
+
+
+    await loadMappings();
+}
+
+async function loadMappings() {
+
+    const url =
+        `/api/admin/sources/${encodeURIComponent(currentSource.source_key)}` +
+        `/mapping-suggestions?table=${encodeURIComponent(currentTable)}`;
+
+    const res = await fetch(url);
+
+    const data = await res.json();
+
+    if (!res.ok) {
+
+        showStatus(
+            "mappingStatus",
+            data.error || "Failed to load mappings",
+            "error"
+        );
+
+        return;
+    }
+
+    currentSuggestions = data.suggestions || [];
+
+    renderMappings();
+}
+
+
+function renderMappings() {
+
+    const container =
+        document.getElementById("mappingContainer");
+
+    container.innerHTML = "";
+
+    if (!currentSuggestions.length) {
+
+        container.innerHTML =
+            `<div class="small">
+                No mapping suggestions found.
+             </div>`;
+
+        return;
+    }
+
+
+    for (const item of currentSuggestions) {
+
+        const row =
+            document.createElement("div");
+
+        row.className = "mapping";
+
+        const candidates =
+            item.candidates || [];
+
+        let options =
+            `<option value="">-- not mapped --</option>`;
+
+        for (const candidate of candidates) {
+
+            const selected =
+                candidate.column_name === item.column_name
+                ? "selected"
+                : "";
+
+            options += `
+                <option
+                    value="${escapeHtml(candidate.column_name)}"
+                    ${selected}>
+                    ${escapeHtml(candidate.column_name)}
+                </option>
+            `;
+        }
+
+        row.innerHTML = `
+
+            <strong>
+                ${escapeHtml(item.logical_field)}
+            </strong>
+
+            <select
+                data-logical-field="${escapeHtml(item.logical_field)}">
+                ${options}
+            </select>
+
+            <span>
+                ${item.confidence != null
+                    ? Number(item.confidence).toFixed(2)
+                    : "-"}
+            </span>
+
+        `;
+
+        container.appendChild(row);
+    }
+}
+
+
+async function confirmMappings() {
+
+    const selects =
+        document.querySelectorAll(
+            "#mappingContainer select"
+        );
+
+    const mappings = [];
+
+    for (const select of selects) {
+
+        const column = select.value;
+
+        if (!column) {
+            continue;
+        }
+
+        mappings.push({
+            logical_field:
+                select.dataset.logicalField,
+
+            column_name:
+                column
+        });
+    }
+
+
+    if (!mappings.length) {
+
+        showStatus(
+            "mappingStatus",
+            "No mappings selected.",
+            "error"
+        );
+
+        return;
+    }
+
+
+    const url =
+        `/api/admin/sources/${encodeURIComponent(currentSource.source_key)}` +
+        `/mappings/confirm?table=${encodeURIComponent(currentTable)}`;
+
+
+    const res = await fetch(
+        url,
+        {
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+                mappings
+            })
+        }
+    );
+
+
+    const data = await res.json();
+
+
+    if (!res.ok) {
+
+        showStatus(
+            "mappingStatus",
+            data.error || "Failed to confirm mappings",
+            "error"
+        );
+
+        return;
+    }
+
+
+    showStatus(
+        "mappingStatus",
+        "Mappings confirmed successfully.",
+        "success"
+    );
+}
+
+
+async function deleteSource(sourceKey) {
+
+    if (!confirm(
+        `Delete uploaded source "${sourceKey}"?`
+    )) {
+        return;
+    }
+
+
+    const res = await fetch(
+        `/api/admin/sources/${encodeURIComponent(sourceKey)}`,
+        {
+            method: "DELETE"
+        }
+    );
+
+
+    const data = await res.json();
+
+
+    if (!res.ok) {
+
+        alert(
+            data.error ||
+            "Failed to delete source"
+        );
+
+        return;
+    }
+
+
+    document.getElementById("detail").style.display =
+        "none";
+
+    await loadSources();
+}
+
+
+function escapeHtml(value) {
+
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+}
+
+
+loadSources();
+
+</script>
+
+</body>
+</html>

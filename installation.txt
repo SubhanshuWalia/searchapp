@@ -1,0 +1,35 @@
+Setup of app in new system:
+
+1. Environment setup:
+    cd E:\Search_app
+    python -m venv venv
+    venv\Scripts\activate
+    pip install -r requirements.txt
+
+2. Making app as system service - for auto startup on system failure:
+    Powershell as admin
+    winget install nssm     *if winget not installed*
+    nssm install SearchApp "E:\Search_app\venv\Scripts\python.exe" "E:\Search_app\serve.py"
+    nssm set SearchApp AppDirectory E:\Search_app
+    nssm set SearchApp Start SERVICE_AUTO_START
+    nssm set SearchApp AppStdout E:\Search_app\logs\out.log
+    nssm set SearchApp AppStderr E:\Search_app\logs\err.log
+    nssm start SearchApp
+
+    *Safety measure for restarting the app automaticaly after a crash - not yet implemented*
+    nssm set SearchApp AppExit Default Restart
+    nssm set SearchApp AppRestartDelay 5000
+
+    nssm stop SearchApp
+    # replace/edit files
+    nssm start SearchApp
+
+    *The codes to change the secrets, password and access of env file.*
+    python -c "import secrets; print(secrets.token_hex(32))"
+    python -c "import getpass; from werkzeug.security import generate_password_hash as g; print(g(getpass.getpass()))"
+    icacls C:\searchapp\.env /inheritance:r /grant "Administrators:F" /grant "YOUR_SERVICE_USER:R"
+
+3.Cloudflare tunneling done same tunnel for both app and this app
+    id is searchapp.ssdenterprises.org.in
+
+Note: The secrets and username password in this env file is old and the one in the windows deployed app has been changed using the above given scripts in pt. 2.

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Search Database Admin Login</title>
+<style>
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; display: grid; place-items: center; font-family: Arial, sans-serif; background: #f5f7fa; color: #1f2937; }
+.card { width: min(420px, calc(100% - 32px)); background: white; padding: 28px; border-radius: 10px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+h1 { margin-top: 0; font-size: 22px; }
+label { display: block; margin: 16px 0 6px; font-weight: 600; }
+input { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font: inherit; }
+button { width: 100%; margin-top: 20px; padding: 10px 14px; border: 0; border-radius: 6px; background: #2563eb; color: white; font: inherit; cursor: pointer; }
+.error { margin-top: 14px; padding: 10px; border-radius: 6px; background: #fee2e2; color: #991b1b; }
+</style>
+</head>
+<body>
+<div class="card">
+    <h1>Search Database Admin</h1>
+    <form method="post" action="/admin/login">
+        <label for="username">User ID</label>
+        <input id="username" name="username" type="text" autocomplete="username" required autofocus>
+
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+
+        <button type="submit">Login</button>
+    </form>
+    {% if error %}
+        <div class="error">{{ error }}</div>
+    {% endif %}
+</div>
+</body>
+</html>
