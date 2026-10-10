@@ -344,11 +344,21 @@ def quote_fts_token(t):
 
 
 def fts_expr(cols, text):
-    parts = []
-    for tok in tokenize(text):
-        per_col = " OR ".join(f"{qident(c)}:{quote_fts_token(tok)}" for c in cols)
-        parts.append("(" + per_col + ")")
-    return " AND ".join(parts)
+    # Require the complete query as an ordered phrase within one column.
+    phrase = '"' + str(text or '').replace('"', '""').strip() + '"'
+    return "(" + " OR ".join(
+        f"{qident(c)}:{phrase}" for c in cols
+    ) + ")" if cols and phrase != '""' else "0=1"
+
+
+def phrase_like_expr(cols, text):
+    # LIKE fallback also requires the complete ordered query in one column.
+    if not cols or not str(text or '').strip():
+        return "0=1", []
+    pattern = "%" + str(text).strip() + "%"
+    return "(" + " OR ".join(
+        f"{qident(c)} LIKE ?" for c in cols
+    ) + ")", [pattern] * len(cols)
 
 
 def like_expr(cols, text):
@@ -421,7 +431,7 @@ def build_source_query(key, q, fields):
                 add_condition(conds, args, expr, [fts_expr(cfg["fts_cols"], q)])
                 used_fts = True
             else:
-                expr, a = like_expr(cfg["fts_cols"], q)
+                expr, a = phrase_like_expr(cfg["fts_cols"], q)
                 add_condition(conds, args, expr, a)
                 fallback_like = True
 
@@ -450,20 +460,20 @@ def build_source_query(key, q, fields):
                 add_condition(conds, args, "0=1")
                 continue
 
-            # Father Name is text and can use FTS where available.
-            if fk == "father":
+            # Address and Father Name queries must match in order within
+            # one eligible column; words cannot be distributed across columns.
+            if fk in ("addr", "father"):
                 if has_fts_for(cfg) and all(c in cfg["fts_cols"] for c in cols):
                     expr = f"rowid IN (SELECT rowid FROM {qident(cfg['fts'])} WHERE {qident(cfg['fts'])} MATCH ?)"
                     add_condition(conds, args, expr, [fts_expr(cols, value)])
                     used_fts = True
                 else:
-                    expr, a = like_expr(cols, value)
+                    expr, a = phrase_like_expr(cols, value)
                     add_condition(conds, args, expr, a)
                     fallback_like = True
             else:
-                # Pincode is a required AND filter. Search the supplied
-                # pincode as a literal substring in address/location fields
-                # (and any dedicated pincode field that actually exists).
+                # Pincode and other existing field filters retain their current
+                # matching behavior.
                 expr, a = like_expr(cols, value)
                 add_condition(conds, args, expr, a)
                 fallback_like = True

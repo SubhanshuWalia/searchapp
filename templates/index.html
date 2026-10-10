@@ -184,7 +184,7 @@ function rowContains(r, text) {
 }
 
 function hlText() {
-  return [qEl.value.trim(), ...Object.values(fieldVals())].filter(Boolean).join(' ');
+  return { q: qEl.value.trim(), ...fieldVals() };
 }
 
 function rowPasses(row, fields) {
@@ -217,16 +217,54 @@ for (const [key, el] of [['q', qEl], ...Object.entries(fieldEls)]) {
   });
 }
 
-      function highlight(text, q) {
-        if (text === null || text === undefined) return '';
-        const s = String(text);
-        const tokens = (q || '').split(/\s+/).filter(t => t.length >= 1);
-        if (!tokens.length) return esc(s);
-        const re = new RegExp('(' + tokens.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|') + ')', 'gi');
-        // split() with a capture group interleaves non-match/match parts;
-        // escape every part so data can never break the page markup.
-        return s.split(re).map((part, i) => i % 2 ? '<mark>' + esc(part) + '</mark>' : esc(part)).join('');
-      }
+      function highlight(text, queries) {
+  if (text === null || text === undefined) return '';
+  const s = String(text);
+  const phrases = (Array.isArray(queries) ? queries : [queries])
+    .map(v => String(v || '').trim())
+    .filter(Boolean);
+  if (!phrases.length) return esc(s);
+
+  const re = new RegExp(
+    '(' + phrases
+      .sort((a, b) => b.length - a.length)
+      .map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .join('|') + ')',
+    'gi'
+  );
+  return s.split(re)
+    .map((part, i) => i % 2 ? '<mark>' + esc(part) + '</mark>' : esc(part))
+    .join('');
+}
+
+function highlightQueriesForColumn(c) {
+  const n = String(viewColumnName(c) || '').toLowerCase().replace(/[_-]+/g, ' ').trim();
+  const fields = fieldVals();
+  const queries = [];
+
+  // Main search is allowed to match across eligible columns.
+  if (qEl.value.trim()) queries.push(qEl.value.trim());
+
+  const aliases = {
+    addr: ['address', 'ladd', 'ward', 'ward details', 'street', 'village', 'village name',
+           'mandal', 'mandal name', 'district', 'district name', 'secretariat', 'school', 'text'],
+    father: ['father name', 'father', 'fname', 'father care of', 'care of'],
+    city: ['district', 'district name', 'village', 'village name', 'mandal', 'mandal name',
+           'secretariat', 'address', 'ward', 'text'],
+    pincode: ['pincode', 'pin code', 'pin', 'zipcode', 'zip code', 'address', 'ladd',
+              'ward details', 'street', 'village', 'village name', 'mandal', 'mandal name',
+              'district', 'district name'],
+    phone: ['mobile', 'phone', 'mobile number', 'phone number', 'alt mobile', 'alt mob', 'altno'],
+    idcard: ['uid', 'aadhaar', 'rice card', 'account', 'ifsc', 'hh id', 'policy', 'mobile', 'alt mobile', 'altno']
+  };
+
+  for (const [fk, value] of Object.entries(fields)) {
+    if (!value) continue;
+    const allowed = aliases[fk] || [];
+    if (allowed.some(a => n === a || n.includes(a))) queries.push(value);
+  }
+  return queries;
+}
 
       function esc(s) {
         if (s === null || s === undefined) return '';
@@ -434,7 +472,7 @@ function renderAll() {
       let t = '<div class="tblwrap"><table><thead><tr><th></th></tr></thead><tbody>';
       rows.forEach((r, rowIndex) => {
         const c = rawCols[0];
-        t += `<tr class="selectable-row" data-row="${rowIndex}"><td class="wrap">${highlight(displayCell(r, c), ht)}</td></tr>`;
+        t += `<tr class="selectable-row" data-row="${rowIndex}"><td class="wrap">${highlight(displayCell(r, c), highlightQueriesForColumn(c))}</td></tr>`;
       });
       t += '</tbody></table></div>';
       if (g.more) t += `<button class="more" data-key="${key}">Load more</button>`;
@@ -490,7 +528,7 @@ function renderAll() {
       t += `<tr class="selectable-row" data-row="${rowIndex}">` + rawCols.map(c => {
         const v = displayCell(r, c);
         const cls = columnSizeClass(c);
-        return `<td class="${cls}">${highlight(v, ht)}</td>`;
+        return `<td class="${cls}">${highlight(v, highlightQueriesForColumn(c))}</td>`;
       }).join('') + '</tr>';
     });
 
